@@ -13,6 +13,7 @@ pub struct Emu {
     screen: [bool; SCREEN_WIDTH * SCREEN_HEIGHT],
     v_reg: [u8; NUM_REGS],
     i_reg: u16,
+    sp: u16,
     stack: [u16; STACK_SIZE],
     keys: [bool;NUM_KEYS],
     dt: u8,
@@ -27,10 +28,22 @@ impl Emu {
             screen: [false; SCREEN_WIDTH * SCREEN_HEIGHT],
             v_reg: [0; NUM_REGS],
             i_reg: 0,
+            sp: 0,
             stack: [0x200; STACK_SIZE],
             keys: [false;NUM_KEYS],
             dt: 0,
             st: 0,
         }
     }
+
+    fn push(&mut self, val: u16) {
+        self.stack[self.sp as usize] = val;
+        self.sp += 1;
+    }
+
+    fn pop(&mut self) -> u16 {
+        self.sp -= 1;
+        self.stack[self.sp as usize]
+    }
 }
+
