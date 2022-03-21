@@ -362,7 +362,7 @@ impl Emu {
                 for y_line in 0..num_rows {
                     // Determine which memory address our row's data is stored
                     let addr = self.i_reg + y_line as u16;
-                    let pixels = self.ram[addr] as usize;
+                    let pixels = self.ram[addr as usize];
                     // Iterate over each column in our row
                     for x_line in 0..8 { 
                         // Use a mask to fetch current pixel's bit. Only flip if a 1
@@ -456,27 +456,60 @@ impl Emu {
             },
 
             // FX29 - Set I to Font Address
+            // Note that since we are storing fonts at the start of RAM
+            // and they take up 5 bytes each, their location is simply their
+            // value multiplied by 5
+            (0xF,_,2,0) => {
+                let x = digit2 as usize;
+                let c = self.v_reg[x] as u16;
+                self.i_reg = c *5;
+            },
 
+            // FX33 - I = BCD of VX
+            // Store the binary coded decimal of a number in the VX register
+            // into the I register
+            (0xF,_,3,3) => {
+                let x = digit2 as usize;
+                let vx = self.v_reg[x] as f32;
 
+                // Fetch the hundreds digit by dividing by 100 and tossing the decimal
+                let hundreds = (vx / 100.0).floor() as u8;
+                // Fetch the tens digit by dividing by 10, toss ones digit and decimal
+                let tens = ((vx / 10.0) % 10.0).floor() as u8;
+                // Fetch the ones digit by tossing the hundreds and the tens
+                let ones = (vx % 10.0) as u8;
+                
+                self.ram[self.i_reg as usize] = hundreds;
+                self.ram[(self.i_reg + 1) as usize] = tens;
+                self.ram[(self.i_reg + 2) as usize] = ones
+            },
 
+            // FX55 - Store V0 through VX into I
+            (0xF,_,5,5) => {
+                let x = digit2 as usize;
+                let i = self.i_reg as usize;
+                for idx in 0..=x {
+                    self.ram[i + idx] = self.v_reg[idx];
+                }
+            },
 
-
-
-
-
-            
-
-
-
+            // FX65 - Load I into V0 through VX
+            (0xF,_,6,5) => {
+                let x = digit2 as usize;
+                let i = self.i_reg as usize;
+                for idx in 0..=x {
+                    self.v_reg[idx] = self.ram[i + idx]
+                }
+            },
 
             // Everything else. Should never hit this but ya know 
             (_,_,_,_) => unimplemented!("Unimplemented opcode: {}", op),
-        }
+        };
     }
 
 
 
-}
+} // END Emu impl
 
 
 
