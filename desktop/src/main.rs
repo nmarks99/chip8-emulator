@@ -11,7 +11,7 @@ use sdl2::video::Window;
 const SCALE: u32 = 15;
 const WINDOW_WIDTH: u32 = (SCREEN_WIDTH as u32) * SCALE;
 const WINDOW_HEIGHT: u32 = (SCREEN_HEIGHT as u32) * SCALE;
-
+const TICKS_PER_FRAME: usize = 10;
 
 
 fn draw_screen(emu: &Emu, canvas: &mut Canvas<Window>) {
@@ -80,8 +80,10 @@ fn main() {
                 },
                 _ => ()
             } 
-
-            chip8.tick();
+            for _ in 0..TICKS_PER_FRAME {
+                chip8.tick();
+            }
+            chip8.tick_timers();
             draw_screen(&chip8, &mut canvas);
         }
     }
