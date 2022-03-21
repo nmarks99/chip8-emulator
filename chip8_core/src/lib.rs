@@ -77,6 +77,25 @@ impl Emu {
 
     }
 
+    pub fn get_display(&self) -> &[bool] {
+        // passes a pointer to the screen buffer to the frontend
+        &self.screen
+    }
+
+    pub fn keypress(&mut self, idx: usize, pressed: bool) {
+        // allows us to set elements of the keys array
+        // frontend will handle actually reading keyboard presses
+        self.keys[idx] = pressed;
+    }
+
+    pub fn load(&mut self, data: &[u8]) {
+        // loads the game code into RAM
+        let start = START_ADDR as usize;
+        let end = (START_ADDR as usize) + data.len();
+        self.ram[start..end].copy_from_slice(data);
+    }
+        
+
     pub fn reset(&mut self) {
         // resets the emulator by setting everything back to default values
         self.pc = START_ADDR; // program counter
