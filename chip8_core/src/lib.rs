@@ -1,3 +1,16 @@
+
+// CHIP-8 EMULATOR CORE
+
+/*
+Basic CPU loop:
+    1. Fetch the value from our game (loaded into RAM) at the memory address stored 
+       in our program counter.
+    2. Decode this instruction
+    3. Execute, which will possible involve modifying our CPU registers or RAM
+    4. Move the PC to the next instruction and repeat
+*/
+
+
 pub const SCREEN_WIDTH: usize = 64;
 pub const SCREEN_HEIGHT: usize = 32;
 
@@ -66,16 +79,16 @@ impl Emu {
 
     pub fn reset(&mut self) {
         // resets the emulator by setting everything back to default values
-        self.pc = START_ADDR;
+        self.pc = START_ADDR; // program counter
         self.ram = [0; RAM_SIZE];
         self.screen = [false; SCREEN_WIDTH * SCREEN_HEIGHT];
         self.v_reg = [0; NUM_REGS];
         self.i_reg = 0;
-        self.sp = 0;
+        self.sp = 0; // stack pointer
         self.stack = [0x200; STACK_SIZE];
         self.keys = [false;NUM_KEYS];
-        self.dt = 0;
-        self.st = 0;
+        self.dt = 0; // delay timer
+        self.st = 0; // sound timer
         self.ram[..FONTSET_SIZE].copy_from_slice(&FONTSET);
     }
 
@@ -88,5 +101,84 @@ impl Emu {
         self.sp -= 1;
         self.stack[self.sp as usize]
     }
+
+    pub fn tick(&mut self) {
+        
+        // Fetch
+        let op = self.fetch();
+        
+        // Decode & execute
+        self.execute(op);
+    }
+
+
+    fn fetch(&mut self) -> u16 {
+        // get the instruction (opcode) we are about to execute
+        let higher_byte = self.ram[self.pc as usize] as u16;
+        let lower_byte = self.ram[(self.pc + 1) as usize] as u16;
+        let op = (higher_byte << 8) | lower_byte;
+        self.pc += 2;
+        op
+    }
+
+
+    pub fn tick_timers(&mut self) {
+        if self.dt > 0 {
+            self.dt -= 1;
+        }
+
+        if self.st > 0 {
+            if self.st == 1 {
+                // BEEP
+            }
+            self.st -= 1;
+        }
+    }
+
+
+
+    fn execute(&mut self, op: u16) {
+        let digit1 = (op & 0xF000) >> 12;
+        let digit2 = (op & 0x0F00) >> 8;
+        let digit3 = (op & 0x00F0) >> 4;
+        let digit4 = op & 0x000F;
+
+
+        match (digit1, digit2, digit3, digit4) {
+            
+            // NOP: do nothing
+            (0,0,0,0) => return,
+
+            // 00E0 - Clear screen (CLS)
+            (0,0,0xE,0) => {
+                self.screen = [false; SCREEN_WIDTH * SCREEN_HEIGHT];
+            }
+
+            // 00EE - Retrun from subroutine (RET)
+            (0,0,0xE,0xE) => {
+                let ret_addr = self.pop();
+                self.pc = ret_addr;
+            }
+
+            // 1NNN - Jump
+            (1,_,_,_) => {
+                let nnn = op & 0xFFF;
+                self.pc = nnn;
+            }
+
+
+
+
+            // Everything else. Should never hit this but ya know 
+            (_,_,_,_) => unimplemented!("Unimplemented opcode: {}", op),
+        }
+    }
+
+
+
 }
+
+
+
+
 
