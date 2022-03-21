@@ -329,9 +329,17 @@ impl Emu {
                 let nnn = op & 0xFFF;
                 self.i_reg = nnn;
             },
+        
+            // BNNN - Jump to V0 + NNN
+            (0xB,_,_,_) => {
+                let nnn = op & 0xFFF;
+                self.pc = (self.v_reg[0] as u16) + nnn;
+            },
 
-            // Jump to V0 + NNN
-            // (0xB)
+
+
+
+
 
 
             
