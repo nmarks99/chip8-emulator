@@ -431,6 +431,33 @@ impl Emu {
                 }
             },
 
+            // FX15 - DT = VX
+            // Resets the delay timer to a value from V register
+            (0xF,_,1,5) => {
+                let x = digit2 as usize;
+                self.dt = self.v_reg[x];
+            },
+
+
+            // FX18 - ST = VX
+            // Store value from V register into Sound Timer
+            (0xF,_,1,8) => {
+                let x = digit2 as usize;
+                self.st = self.v_reg[x];
+            },
+
+            // FX1E - I += VX
+            // Takes value stored in VX and adds it to I register
+            // Rolls over to zero if overflow 
+            (0xF,_,1,0xE) => {
+                let x = digit2 as usize;
+                let vx = self.v_reg[x] as u16;
+                self.i_reg = self.i_reg.wrapping_add(vx);
+            },
+
+            // FX29 - Set I to Font Address
+
+
 
 
 
