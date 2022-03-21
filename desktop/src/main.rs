@@ -5,6 +5,5 @@ fn main() {
     if args.len() != 2 {
         println!("Usage: cargo run path/to/game");
         return;
-    }
-    
+    } 
 }
