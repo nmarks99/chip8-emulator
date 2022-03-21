@@ -152,19 +152,189 @@ impl Emu {
             // 00E0 - Clear screen (CLS)
             (0,0,0xE,0) => {
                 self.screen = [false; SCREEN_WIDTH * SCREEN_HEIGHT];
-            }
+            },
 
             // 00EE - Retrun from subroutine (RET)
             (0,0,0xE,0xE) => {
                 let ret_addr = self.pop();
                 self.pc = ret_addr;
-            }
+            },
 
             // 1NNN - Jump
+            // Anything starting with 1, but ending with any three digits 
+            // The other 3 digits are used as parameters
             (1,_,_,_) => {
                 let nnn = op & 0xFFF;
                 self.pc = nnn;
-            }
+            },
+
+            // 2NNN - Call subroutine
+            // Opposite of RET. Add current PC to the stack, then
+            // jump to the given address
+            // 2, followed by the 3 parameters for where to jump to
+            (2,_,_,_) => {
+               let nnn = op & 0xFFF;
+               self.push(self.pc);
+               self.pc = nnn;
+            },
+            
+            // 3XNN - Skip next if VX == NN
+            // Assembly equivalent of an if else block a
+            (3,_,_,_) => {
+                let x = digit2 as usize;
+                let nn = (op & 0xFF) as u8;
+                if self.v_reg[x] == nn {
+                    // skipping the next opcode is the same as skipping
+                    // PC ahead by 2 bytes
+                    self.pc += 2;
+                }
+            },
+
+            // 4XNN - Skip next if VX != NN
+            (4,_,_,_) => {
+                let x = digit2 as usize;
+                let nn = (op & 0xFF) as u8;
+                if self.v_reg[x] != nn {
+                    // skipping the next opcode is the same as skipping
+                    // PC ahead by 2 bytes
+                    self.pc += 2;
+                }
+            },
+
+            // 5XY0 - Skip next if VX == VY
+            (5,_,_,0) => {
+                let x = digit2 as usize;
+                let y = digit3 as usize;
+                if self.v_reg[x] == self.v_reg[y] {
+                    self.pc += 2;
+                }
+            },
+
+            // 6XNN - VX = NN
+            // Sets the VX register to the given value
+            (6,_,_,_) => {
+                let x = digit2 as usize;
+                let nn = (op & 0xFF) as u8;
+                self.v_reg[x] = nn;
+            },
+
+            // 7XNN - VX += NN
+            // Adds given value to the VX reigster
+            (7,_,_,_) => {
+                let x = digit2 as usize;
+                let nn = (op & 0xFF) as u8;
+                // use wrapping_add to avoid rust panics at overflows
+                self.v_reg[x] = self.v_reg[x].wrapping_add(nn); 
+            },
+
+            // 8XY0 - VX = VY
+            // Set the VX register to the value of VY
+            (8,_,_,0) => {
+                let x = digit2 as usize;
+                let y = digit3 as usize;
+                self.v_reg[x] = self.v_reg[y];
+            },
+            
+            // 8XY1 - Bitwise OR operation (VX |= VY)
+            (8,_,_,1) => {
+                let x = digit2 as usize;
+                let y = digit3 as usize;
+                self.v_reg[x] |= self.v_reg[y];
+            },
+            
+            // 8XY2 - Bitwise AND operation (VX &= VY)
+            (8,_,_,2) => {
+                let x = digit2 as usize;
+                let y = digit3 as usize;
+                self.v_reg[x] &= self.v_reg[y];
+            },
+            
+            // 8XY3 - Bitwise XOR operation (VX ^= VY)
+            (8,_,_,3) => {
+                let x = digit2 as usize;
+                let y = digit3 as usize;
+                self.v_reg[x] ^= self.v_reg[y];
+            },
+
+            // 8XY4 - VX += VY
+            // Does the operation then sets the Flag register to indicate whether
+            // or not an overflow occured (if overflow, flag =1, 0 if not)
+            (8,_,_,4) => {
+                let x = digit2 as usize;
+                let y = digit3 as usize;
+
+                let (new_vx, carry) = self.v_reg[x].overflowing_add(self.v_reg[y]);
+                let new_vf = if carry { 1 } else { 0 };
+
+                self.v_reg[x] = new_vx;
+                self.v_reg[0xF] = new_vf;
+            },
+
+            // 8XY5 - VX -= VY
+            // Same as the last one except subtraction instead of addtion.
+            (8,_,_,5) => {
+                let x = digit2 as usize;
+                let y = digit3 as usize;
+             
+                let(new_vx, borrow) = self.v_reg[x].overflowing_sub(self.v_reg[y]);
+                let new_vf = if borrow { 0 } else { 1 };
+
+                self.v_reg[x] = new_vx;
+                self.v_reg[0xF] = new_vf;
+            },
+
+            // 8XY6 - Single right shift of VX (VX >>= 1)
+            // bit that is dropped off is stored in the VF register
+            (8,_,_,6) => {
+                let x = digit2 as usize;
+                let lsb = self.v_reg[x] & 1;
+                self.v_reg[x] >>= 1;
+                self.v_reg[0xF] = lsb;
+            },
+
+            // 8XY7 - VX = VY - VX
+            // similar to 8XY5 but in opposite direction
+            (8,_,_,7) => {
+                let x = digit2 as usize;
+                let y = digit3 as usize;
+                
+                let (new_vx, borrow) = self.v_reg[y].overflowing_sub(self.v_reg[x]);
+                let new_vf = if borrow { 0 } else { 1 };
+
+                self.v_reg[x] = new_vx;
+                self.v_reg[0xF] = new_vf;
+            },
+
+            // 8XYE - Single left shift of VX (VX <<= 1)
+            // Store the overflowed value in the flag register
+            (8,_,_,0xE) => {
+                let x = digit2 as usize;
+                let msb = (self.v_reg[x] >> 7) & 1;
+                self.v_reg[x] <<= 1;
+                self.v_reg[0xF] = msb;
+            },
+
+            // 9XY0 - Skip if VX != VY
+            // Same as 5XY0 but with an inequality
+            (9,_,_,0) => {
+                let x = digit2 as usize;
+                let y = digit2 as usize;
+                if self.v_reg[x] != self.v_reg[y] {
+                    self.pc += 2;
+                }
+            },
+
+            // ANNN - I = NNN
+            (0xA,_,_,_) => {
+                let nnn = op & 0xFFF;
+                self.i_reg = nnn;
+            },
+
+            // Jump to V0 + NNN
+            // (0xB)
+
+
+            
 
 
 
@@ -177,6 +347,21 @@ impl Emu {
 
 
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
