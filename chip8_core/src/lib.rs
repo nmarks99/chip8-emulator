@@ -478,7 +478,7 @@ impl Emu {
             // Note that since we are storing fonts at the start of RAM
             // and they take up 5 bytes each, their location is simply their
             // value multiplied by 5
-            (0xF,_,2,0) => {
+            (0xF,_,2,9) => {
                 let x = digit2 as usize;
                 let c = self.v_reg[x] as u16;
                 self.i_reg = c *5;

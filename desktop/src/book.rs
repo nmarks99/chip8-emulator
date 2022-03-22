@@ -1,13 +1,15 @@
 use chip8_core::*;
-use std::env;
-use sdl2::event::Event; 
+
 use std::fs::File;
 use std::io::Read;
+use std::env;
+
+use sdl2::event::Event;
+use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
 use sdl2::rect::Rect;
 use sdl2::render::Canvas;
 use sdl2::video::Window;
-use sdl2::keyboard::Keycode;
 
 const SCALE: u32 = 15;
 const WINDOW_WIDTH: u32 = (SCREEN_WIDTH as u32) * SCALE;
@@ -15,13 +17,11 @@ const WINDOW_HEIGHT: u32 = (SCREEN_HEIGHT as u32) * SCALE;
 const TICKS_PER_FRAME: usize = 10;
 
 fn main() {
-    
-    // Get path to ROM file and command line input
     let args: Vec<_> = env::args().collect();
     if args.len() != 2 {
         println!("Usage: cargo run path/to/game");
         return;
-    } 
+    }
 
     // Setup SDL
     let sdl_context = sdl2::init().unwrap();
@@ -39,19 +39,18 @@ fn main() {
 
     let mut event_pump = sdl_context.event_pump().unwrap();
 
-    // Initialize Emu object
     let mut chip8 = Emu::new();
-        
+
     let mut rom = File::open(&args[1]).expect("Unable to open file");
     let mut buffer = Vec::new();
+
     rom.read_to_end(&mut buffer).unwrap();
     chip8.load(&buffer);
-    
 
     'gameloop: loop {
         for evt in event_pump.poll_iter() {
             match evt {
-                Event::Quit{..} => {
+                Event::Quit{..} | Event::KeyDown{keycode: Some(Keycode::Escape), ..}=> {
                     break 'gameloop;
                 },
                 Event::KeyDown{keycode: Some(key), ..} => {
@@ -61,51 +60,42 @@ fn main() {
                 },
                 Event::KeyUp{keycode: Some(key), ..} => {
                     if let Some(k) = key2btn(key) {
-                        chip8.keypress(k,false);
+                        chip8.keypress(k, false);
                     }
                 },
                 _ => ()
-            } 
-            for _ in 0..TICKS_PER_FRAME {
-                chip8.tick();
             }
-            chip8.tick_timers();
-            draw_screen(&chip8, &mut canvas);
         }
+
+        for _ in 0..TICKS_PER_FRAME {
+            chip8.tick();
+        }
+        chip8.tick_timers();
+        draw_screen(&chip8, &mut canvas);
     }
-
-
-
-
 }
-
-
-
-
 
 fn draw_screen(emu: &Emu, canvas: &mut Canvas<Window>) {
-   // Clear canvas as black
-   canvas.set_draw_color(Color::RGB(0,0,0));
-   canvas.clear();
+    // Clear canvas as black
+    canvas.set_draw_color(Color::RGB(0, 0, 0));
+    canvas.clear();
 
-   let screen_buf = emu.get_display();
-   // Now set draw color to white
-   // Iterate through each point and see if it should be drawn
-   canvas.set_draw_color(Color::RGB(255, 255, 255));
-   for (i,pixel) in screen_buf.iter().enumerate() {
-       if *pixel {
-           // Convert 1D array's index into a 2D (x,y) position
-           let x = (i % SCREEN_WIDTH) as u32;
-           let y = (i / SCREEN_WIDTH) as u32;
+    let screen_buf = emu.get_display();
+    // Now set draw color to white, iterate through each point and see if it should be drawn
+    canvas.set_draw_color(Color::RGB(255, 255, 255));
+    for (i, pixel) in screen_buf.iter().enumerate() {
+        if *pixel {
+            // Convert our 1D array's index into a 2D (x,y) position
+            let x = (i % SCREEN_WIDTH) as u32;
+            let y = (i / SCREEN_WIDTH) as u32;
 
-           // Draw a rectangle at (x,y), scaled by the SCALE value
-           let rect = Rect::new((x * SCALE) as i32, (y * SCALE) as i32, SCALE, SCALE);
-           canvas.fill_rect(rect).unwrap();
-       }
-   }
-   canvas.present();
+            // Draw a rectangle at (x,y), scaled up by our SCALE value
+            let rect = Rect::new((x * SCALE) as i32, (y * SCALE) as i32, SCALE, SCALE);
+            canvas.fill_rect(rect).unwrap();
+        }
+    }
+    canvas.present();
 }
-
 
 /*
     Keyboard                    Chip-8
@@ -141,4 +131,3 @@ fn key2btn(key: Keycode) -> Option<usize> {
         _ =>                None,
     }
 }
-
